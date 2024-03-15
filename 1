@@ -1,0 +1,752 @@
+import {Component} from 'react'
+
+import Loader from 'react-loader-spinner'
+import Cookies from 'js-cookie'
+
+import FiltersGroup from '../FiltersGroup'
+import ProductCard from '../ProductCard'
+import ProductsHeader from '../ProductsHeader'
+
+import './index.css'
+
+const apiStatusConstants = {
+  initial: 'INITIAL',
+  success: 'SUCCESS',
+  failure: 'FAILURE',
+  inProgress: 'IN_PROGRESS',
+}
+const categoryOptions = [
+  {
+    name: 'Clothing',
+    categoryId: '1',
+  },
+  {
+    name: 'Electronics',
+    categoryId: '2',
+  },
+  {
+    name: 'Appliances',
+    categoryId: '3',
+  },
+  {
+    name: 'Grocery',
+    categoryId: '4',
+  },
+  {
+    name: 'Toys',
+    categoryId: '5',
+  },
+]
+
+const sortbyOptions = [
+  {
+    optionId: 'PRICE_HIGH',
+    displayText: 'Price (High-Low)',
+  },
+  {
+    optionId: 'PRICE_LOW',
+    displayText: 'Price (Low-High)',
+  },
+]
+
+const ratingsList = [
+  {
+    ratingId: '4',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-four-stars-img.png',
+  },
+  {
+    ratingId: '3',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-three-stars-img.png',
+  },
+  {
+    ratingId: '2',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-two-stars-img.png',
+  },
+  {
+    ratingId: '1',
+    imageUrl:
+      'https://assets.ccbp.in/frontend/react-js/rating-one-star-img.png',
+  },
+]
+
+class AllProductsSection extends Component {
+  state = {
+    productsList: [],
+    activeOptionId: sortbyOptions[0].optionId,
+    searchInput: '',
+    category: '',
+    rating: '',
+    activeCategoryId: '',
+    activeRatingId: '',
+    apiStatus: apiStatusConstants.initial,
+  }
+
+  componentDidMount() {
+    this.getProducts()
+  }
+
+  getProducts = async () => {
+    this.setState({
+      apiStatus: apiStatusConstants.inProgress,
+    })
+    const jwtToken = Cookies.get('jwt_token')
+
+    // TODO: Update the code to get products with filters applied
+
+    const {activeOptionId, category, searchInput, rating} = this.state
+    const apiUrl = `https://apis.ccbp.in/products?sort_by=${activeOptionId}&category=${category}&title_search=${searchInput}&rating=${rating}`
+    const options = {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      method: 'GET',
+    }
+    const response = await fetch(apiUrl, options)
+    if (response.ok) {
+      const fetchedData = await response.json()
+      const updatedData = fetchedData.products.map(product => ({
+        title: product.title,
+        brand: product.brand,
+        price: product.price,
+        id: product.id,
+        imageUrl: product.image_url,
+        rating: product.rating,
+      }))
+      this.setState({
+        productsList: updatedData,
+        apiStatus: apiStatusConstants.success,
+      })
+    } else if (response.status === 401) {
+      this.setState({apiStatus: apiStatusConstants.failure})
+    }
+  }
+
+  changeSortby = activeOptionId => {
+    this.setState({activeOptionId}, this.getProducts)
+  }
+
+  handleSearchPress = value => {
+    if (event.key === 'Enter' && this.state.searchInput.trim() !== '') {
+      this.setState({searchInput: value}, this.getProducts)
+    }
+  }
+
+  renderProductsList = () => {
+    const {productsList} = this.state
+
+    // TODO: Add No Products View
+    if (productsList.length === 0) {
+      return (
+        <div className="no-products-view">
+          <img
+            className="no-products-img"
+            src="https://assets.ccbp.in/frontend/react-js/nxt-trendz/nxt-trendz-no-products-view.png"
+            alt="no products"
+          />
+          <p className="no-products-found-text">No Products Found</p>
+          <p className="no-products-detail-text">
+            We could not find any products. Try other filters.
+          </p>
+        </div>
+      )
+    }
+    return (
+      <div className="all-products-container">
+        <ul className="products-list">
+          {productsList.map(product => (
+            <ProductCard productData={product} key={product.id} />
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  renderLoader = () => (
+    <div className="products-loader-container">
+      <Loader type="ThreeDots" color="#0b69ff" height="50" width="50" />
+    </div>
+  )
+
+  // TODO: Add failure view
+  renderProductsFailure = () => (
+    <div className="failure-view">
+      <div className="failure-sub-container">
+        <img
+          className="no-products-img"
+          src="https://assets.ccbp.in/frontend/react-js/nxt-trendz/nxt-trendz-products-error-view.png"
+          alt="products failure"
+        />
+        <p className="no-products-found-text">Oops! Something Went Wrong</p>
+        <p className="no-products-detail-text">
+          We are having some trouble processing your request.Please try again.
+        </p>
+      </div>
+    </div>
+  )
+
+  renderProducts = () => {
+    const {apiStatus} = this.state
+    switch (apiStatus) {
+      case apiStatusConstants.inProgress:
+        return this.renderLoader()
+      case apiStatusConstants.failure:
+        return this.renderProductsFailure()
+      case apiStatusConstants.success:
+        return this.renderProductsList()
+      default:
+        return null
+    }
+  }
+
+  onChangeCategory = categoryId => {
+    this.setState(
+      {activeCategoryId: categoryId, category: categoryId},
+      this.getProducts,
+    )
+  }
+
+  onChangeRating = ratingId => {
+    this.setState(
+      {rating: ratingId, activeRatingId: ratingId},
+      this.getProducts,
+    )
+  }
+
+  onClearFilters = () => {
+    this.setState(
+      {
+        activeOptionId: sortbyOptions[0].optionId,
+        searchInput: '',
+        category: '',
+        rating: '',
+        activeCategoryId: '',
+        activeRatingId: '',
+        apiStatus: apiStatusConstants.initial,
+      },
+      this.getProducts,
+    )
+  }
+
+  onChangeSearchInput = value => {
+    this.setState({searchInput: value})
+  }
+
+  render() {
+    const {
+      activeOptionId,
+      searchInput,
+      activeCategoryId,
+      activeRatingId,
+    } = this.state
+
+    return (
+      <>
+        <ProductsHeader
+          activeOptionId={activeOptionId}
+          sortbyOptions={sortbyOptions}
+          changeSortby={this.changeSortby}
+          searchInput={searchInput}
+          onChangeSearchInput={this.onChangeSearchInput}
+          handleSearchPress={this.handleSearchPress}
+        />
+
+        <div className="all-products-section">
+          {/* TODO: Update the below element */}
+          <FiltersGroup
+            categoryOptions={categoryOptions}
+            ratingsList={ratingsList}
+            onChangeCategory={this.onChangeCategory}
+            onChangeRating={this.onChangeRating}
+            activeCategoryId={activeCategoryId}
+            activeRatingId={activeRatingId}
+            onClearFilters={this.onClearFilters}
+          />
+
+          {this.renderProducts()}
+        </div>
+      </>
+    )
+  }
+}
+export default AllProductsSection
+import AllProductsSection from '../AllProductsSection'
+import PrimeDealsSection from '../PrimeDealsSection'
+
+import Header from '../Header'
+
+import './index.css'
+
+const Products = () => (
+  <>
+    <Header />
+    <div className="product-sections">
+      <PrimeDealsSection />
+      <AllProductsSection />
+    </div>
+  </>
+)
+
+export default Products
+.all-products-section {
+  display: flex;
+  flex-direction: column;
+}
+
+@media screen and (min-width: 768px) {
+  .all-products-section {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+/* https://assets.ccbp.in/frontend/react-js/nxt-trendz/nxt-trendz-no-products-view.png alt should be no products
+https://assets.ccbp.in/frontend/react-js/nxt-trendz/nxt-trendz-products-error-view.png alt should be products failure
+Colors
+
+Hex: #f1f5f9
+Hex: #0f172a
+Hex: #12022f
+Hex: #64748b
+Hex: 475569#
+Hex: #0967d2
+Hex: #ffffff */
+@media screen and (min-width: 768px) {
+  .all-products-container {
+    margin-left: 30px;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+  }
+}
+
+.search-icon {
+  height: 20px;
+  width: 20px;
+  margin-right: 8px;
+}
+.products-heading {
+  color: #475569;
+  font-family: 'Roboto';
+  font-size: 20px;
+  font-weight: 500;
+}
+
+@media screen and (min-width: 768px) {
+  .products-heading {
+    font-size: 32px;
+  }
+}
+
+.products-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+@media screen and (min-width: 768px) {
+  .products-loader-container {
+    width: 70%;
+  }
+}
+
+.products-list {
+  display: flex;
+  flex-wrap: wrap;
+  padding-left: 0;
+}
+.no-products-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.no-products-img {
+  width: 400px;
+}
+@media screen and (max-width: 768px) {
+  .no-products-img {
+    max-width: 300px;
+  }
+}
+.all-product-header-container {
+  display: none;
+}
+.no-products-found-text {
+  color: #0f172a;
+  font-family: 'Roboto';
+  font-weight: 600;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+.no-products-detail-text {
+  color: #64748b;
+  font-family: 'Roboto';
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 0px;
+}
+.failure-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 75%;
+  padding-left: 80px;
+}
+@media screen and (max-width: 768px) {
+  .failure-sub-container {
+    max-width: 300px;
+  }
+}
+.failure-sub-container {
+  width: 350px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+@media screen and (min-width: 768px) {
+  .products-header-container {
+    display: flex;
+  }
+}
+.products-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+@media screen and (min-width: 768px) {
+  .products-header {
+    margin-top: 32px;
+  }
+}
+
+.search-input-container {
+  background-color: #f1f5f9;
+  border-radius: 15px;
+  border: none;
+  padding: 8px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  width: 30%;
+  height: 40px;
+  margin-top: 50px;
+  margin-right: 50px;
+}
+@media screen and (max-width: 768px) {
+  .search-input-container {
+    width: 100%;
+  }
+}
+.search-input {
+  background-color: transparent;
+  border: none;
+  width: 96%;
+  margin-left: 8px;
+  color: #475569;
+  font-family: 'Roboto';
+  font-size: 14px;
+  outline: none;
+  font-weight: 600;
+}
+
+.search-icon {
+  height: 20px;
+  width: 20px;
+  margin-right: 8px;
+}
+.products-list-heading {
+  color: #475569;
+  font-family: 'Roboto';
+  font-size: 20px;
+  font-weight: 500;
+}
+
+@media screen and (min-width: 768px) {
+  .products-list-heading {
+    font-size: 32px;
+  }
+}
+
+.sort-by-container {
+  display: flex;
+  align-items: center;
+}
+
+.sort-by-icon {
+  font-size: 24px;
+  color: #475569;
+  margin-right: 6px;
+}
+
+.sort-by {
+  color: #475569;
+  font-family: 'Roboto';
+  font-size: 16px;
+}
+
+.sort-by-select {
+  color: #475569;
+  background-color: #ffffff;
+  font-family: 'Roboto';
+  font-size: 16px;
+  font-weight: 500;
+  border: none;
+  padding: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.select-option {
+  color: #7e858e;
+  font-family: 'Roboto';
+  font-size: 14px;
+}
+import {BsFilterRight, BsSearch} from 'react-icons/bs'
+import './index.css'
+
+const ProductsHeader = props => {
+  const onChangeSortby = event => {
+    const {changeSortby} = props
+    changeSortby(event.target.value)
+  }
+
+  const searchInputChange = event => {
+    const {onChangeSearchInput} = props
+    onChangeSearchInput(event.target.value)
+  }
+
+  const onHandleSearchPress = event => {
+    handleSearchPress(event.target.value)
+  }
+
+  const {sortbyOptions, activeOptionId, searchInput, handleSearchPress} = props
+
+  return (
+    <div className="products-header-container">
+      <div className="search-input-container">
+        <input
+          type="search"
+          placeholder="Search"
+          value={searchInput}
+          onChange={searchInputChange}
+          className="search-input"
+          onKeyPress={onHandleSearchPress}
+        />
+        <BsSearch className="searchIcon" />
+      </div>
+
+      <div className="products-header">
+        <h1 className="products-list-heading">All Products</h1>
+        <div className="sort-by-container">
+          <BsFilterRight className="sort-by-icon" />
+          <p className="sort-by">Sort by</p>
+          <select
+            className="sort-by-select"
+            value={activeOptionId}
+            onChange={onChangeSortby}
+          >
+            {sortbyOptions.map(eachOption => (
+              <option
+                key={eachOption.optionId}
+                value={eachOption.optionId}
+                className="select-option"
+              >
+                {eachOption.displayText}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default ProductsHeader
+.filters-group-container {
+  margin-top: 16px;
+}
+
+@media screen and (min-width: 768px) {
+  .filters-group-container {
+    width: 30%;
+    max-width: 350px;
+
+    flex-shrink: 0;
+  }
+}
+
+/* Write your CSS here */
+.category-container {
+  display: flex;
+  flex-direction: column;
+  list-style-type: none;
+  padding: 0px;
+  margin: 0px;
+}
+.category-text {
+  color: #12022f;
+  font-family: 'Roboto';
+  font-size: 13px;
+  margin-bottom: 0px;
+  font-weight: 900;
+  margin-top: 0px;
+}
+.category-list-item {
+  color: #64748b;
+  font-family: 'Roboto';
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 30px;
+  border: none;
+  background-color: transparent;
+}
+
+.star-text {
+  color: #64748b;
+  font-family: 'Roboto';
+  font-size: 13px;
+  font-weight: 600;
+}
+@media screen and (min-width: 768px) {
+  .filter-group-heading {
+    display: none;
+  }
+}
+.rating-text {
+  margin-top: 30px;
+  color: #12022f;
+  font-family: 'Roboto';
+  font-size: 13px;
+  margin-bottom: 0px;
+  font-weight: 900;
+}
+.star-img {
+  width: 150px;
+}
+.ratings-container {
+  display: flex;
+  flex-direction: column;
+  padding: 0px;
+  margin: 0px;
+  list-style-type: none;
+}
+.list-item-star {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border: none;
+  background-color: transparent;
+}
+@media screen and (max-width: 768px) {
+  .filter-group-heading {
+    display: none;
+  }
+}
+.clear-filters-button {
+  color: #0967d2;
+  border: 1px solid #0967d2;
+  border-radius: 5px;
+  height: 35px;
+  width: 120px;
+  font-family: 'Roboto';
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 10px;
+  background-color: transparent;
+}
+.list-item-selected {
+  color: #0967d2;
+  font-family: 'Roboto';
+  font-size: 13px;
+  font-weight: 600;
+}
+import './index.css'
+
+const FiltersGroup = props => {
+  const {
+    categoryOptions,
+    ratingsList,
+    onChangeCategory,
+    onChangeRating,
+    activeRatingId,
+    activeCategoryId,
+    onClearFilters,
+  } = props
+
+  const categoryChange = categoryId => {
+    onChangeCategory(categoryId)
+  }
+
+  const ratingChange = ratingId => {
+    onChangeRating(ratingId)
+  }
+
+  const clearFiltersButton = () => {
+    onClearFilters()
+  }
+
+  return (
+    <div className="filters-group-container">
+      <h1 className="filter-group-heading">Filters Group</h1>
+      <h1 className="category-text">Category</h1>
+      <ul className="category-container">
+        {categoryOptions.map(eachItem => (
+          <li key={eachItem.categoryId}>
+            <p
+              className={
+                activeCategoryId === eachItem.categoryId
+                  ? `list-item-selected category-list-item`
+                  : 'category-list-item'
+              }
+              onClick={() => categoryChange(eachItem.categoryId)}
+            >
+              {eachItem.name}
+            </p>
+          </li>
+        ))}
+      </ul>
+      <h1 className="rating-text">Rating</h1>
+      <ul className="ratings-container">
+        {ratingsList.map(eachItem => (
+          <li key={eachItem.ratingId}>
+            <button
+              className={
+                activeRatingId === eachItem.ratingId
+                  ? `list-item-star list-item-selected`
+                  : 'list-item-star star-text'
+              }
+              type="button"
+              onClick={() => ratingChange(eachItem.ratingId)}
+            >
+              <img
+                className="star-img"
+                src={eachItem.imageUrl}
+                alt={`rating ${eachItem.ratingId}`}
+              />
+              & up
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button
+        className="clear-filters-button"
+        type="button"
+        onClick={clearFiltersButton}
+      >
+        Clear Filters
+      </button>
+    </div>
+  )
+}
+
+export default FiltersGroup
